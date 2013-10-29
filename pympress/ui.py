@@ -102,6 +102,27 @@ class UI:
 
     #: Whether to use notes mode or not
     notes_mode = False
+    
+    #: Seconds per slide
+    seconds_per_slide = 15
+    
+    #: Slide start time
+    start_time_slide = 0
+    
+    #: Slide elapsed time
+    delta_slide = 0
+    
+    #: Minutes per presentation
+    minutes_per_presentation=30
+    
+    #: We are counting time per with reference to the slide start/end
+    # the options are:
+    # - 'slide'
+    # - 'presentation'
+    time_reference='Presentation timing'
+    
+    #: Whether the time count is forward or reverse
+    time_reverse=False
 
     def __init__(self, doc):
         """
@@ -171,6 +192,11 @@ class UI:
             <menuitem action="Fullscreen"/>
             <menuitem action="Notes mode"/>
           </menu>
+          <menu action="Timing reference">
+            <menuitem action="Presentation timing"/>
+            <menuitem action="Slide timing"/>
+            <menuitem action="Reverse timing"/>
+          </menu>
           <menu action="Help">
             <menuitem action="About"/>
           </menu>
@@ -197,7 +223,15 @@ class UI:
             ("Pause timer",  None,           "_Pause timer", "p",  None, self.switch_pause,      True),
             ("Fullscreen",   None,           "_Fullscreen",  "f",  None, self.switch_fullscreen, False),
             ("Notes mode",   None,           "_Note mode",   "n",  None, self.switch_mode,       self.notes_mode),
+            ("Reverse timing",   None,           "Rever_se timing",   "s",  None, self.switch_countdown,       self.time_reverse),
         ])
+        action_group.add_action(gtk.Action("Timing reference", "_Timing mode",None, None))
+        action_group.add_radio_actions([
+            ("Presentation timing",None, "Presentation-wise timing mode",None,None,1),
+            ("Slide timing",None, "Slide-wise timing mode", None, None,2)
+            ]
+            ,1,self.on_timing_mode_changed)
+            
         ui_manager.insert_action_group(action_group)
 
         # Add menu bar to the window
@@ -333,7 +367,7 @@ class UI:
         about = gtk.AboutDialog()
         about.set_program_name("pympress")
         about.set_version(pympress.__version__)
-        about.set_copyright("(c) 2009, 2010 Thomas Jost")
+        about.set_copyright("(c) 2009, 2010 Thomas Jost\n2013 Arsen Batagov")
         about.set_comments("pympress is a little PDF reader written in Python using Poppler for PDF rendering and GTK for the GUI.")
         about.set_website("http://www.pympress.org/")
         try:
@@ -374,6 +408,12 @@ class UI:
             self.paused = False
             if self.start_time == 0:
                 self.start_time = time.time()
+            self.start_time_slide=time.time()
+            
+        # If we are counting the time down, reset the time counter
+        if self.time_reverse:
+            #self.delta=0
+            self.delta_slide=0
 
         # Update display
         self.update_page_numbers()
@@ -389,6 +429,8 @@ class UI:
         page_min = max(0, cur - 2)
         for p in range(cur+1, page_max) + range(cur, page_min, -1):
             self.cache.prerender(p)
+        
+        
 
 
     def on_expose(self, widget, event=None):
@@ -610,7 +652,13 @@ class UI:
         # Propagate the event further
         return False
 
-
+    def on_timing_mode_changed(self,widget,current):
+        """
+        Choose the timing mode
+        :param widget: the radio widget
+        """
+        self.time_reference=current.get_name()
+            
 
     def render_page(self, page, widget, wtype):
         """
@@ -682,19 +730,51 @@ class UI:
         """
 
         text = "<span font='36'>%s</span>"
+        red_text=  "<span foreground='red' font='36'>%s</span>"
 
         # Current time
         clock = time.strftime("%H:%M:%S")
 
-        # Time elapsed since the beginning of the presentation
+        
         if not self.paused:
+            # Time elapsed since the beginning of the presentation
             self.delta = time.time() - self.start_time
-        elapsed = "%02d:%02d" % (int(self.delta/60), int(self.delta%60))
+            # Time elapsed since the last slide navigation event
+            self.delta_slide=time.time() - self.start_time_slide
+        
+        if self.time_reverse:
+            if self.delta<self.minutes_per_presentation*60:
+                elapsed = "%02d:%02d" % (int((self.minutes_per_presentation*60 - self.delta)/60), int((self.minutes_per_presentation*60-self.delta)%60))
+            else:
+                elapsed = "-%02d:%02d" % (int(self.delta/60), int(self.delta%60))
+            
+            if self.delta_slide<self.seconds_per_slide:
+                elapsed_slide = "%02d:%02d" % (int((self.seconds_per_slide - self.delta_slide)/60), int((self.seconds_per_slide-self.delta_slide)%60))
+            else:
+                elapsed_slide = "-%02d:%02d" % (int((self.delta_slide-self.seconds_per_slide)/60), int((self.delta_slide-self.seconds_per_slide)%60))
+           
+        else:
+            elapsed = "%02d:%02d" % (int(self.delta/60), int(self.delta%60))
+            elapsed_slide = "%02d:%02d" % (int(self.delta_slide/60), int(self.delta_slide%60))
         if self.paused:
             elapsed += " (pause)"
+            elapsed_slide += " (pause)"
 
-        self.label_time.set_markup(text % elapsed)
-        self.label_clock.set_markup(text % clock)
+        #: If we are counting time per slide, display it
+        if self.time_reference=='Slide timing':
+            if elapsed_slide[0]=='-':
+                self.label_time.set_markup(red_text % elapsed_slide)
+            else:
+                self.label_time.set_markup(text % elapsed_slide)
+            self.label_clock.set_markup(text % elapsed)
+        #: By default we display the time relative to the presentation start/end
+        else:
+            if elapsed[0]=='-':
+                self.label_time.set_markup(red_text % elapsed)
+            else:
+                self.label_time.set_markup(text % elapsed)
+            self.label_clock.set_markup(text % clock)
+        
 
         return True
 
@@ -703,6 +783,7 @@ class UI:
         """Switch the timer between paused mode and running (normal) mode."""
         if self.paused:
             self.start_time = time.time() - self.delta
+            self.start_time_slide=time.time()-self.delta_slide
             self.paused = False
         else:
             self.paused = True
@@ -712,6 +793,7 @@ class UI:
     def reset_timer(self, widget=None, event=None):
         """Reset the timer."""
         self.start_time = time.time()
+        self.start_time_slide=time.time()
         self.update_time()
 
 
@@ -798,6 +880,17 @@ class UI:
             self.cache.set_widget_type("p_da_next", PDF_CONTENT_PAGE)
 
         self.on_page_change(False)
+    def  switch_countdown(self,widget=None,event=None):
+        """
+        Switch the timing to countdown mode
+        """
+        #if self.time_reverse:
+            #self.start_time=0            
+        #else:
+            #self.start_time=self.seconds_per_slide
+        self.time_reverse=not self.time_reverse
+            
+        self.update_time()
 
 
 ##
