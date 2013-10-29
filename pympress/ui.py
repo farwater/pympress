@@ -102,7 +102,12 @@ class UI:
 
     #: Whether to use notes mode or not
     notes_mode = False
+
+    #: To remember digital key
+    s_go_page_num = ""
+    old_event_time = (-sys.maxint)
     
+        
     #: Seconds per slide
     seconds_per_slide = 15
     
@@ -197,6 +202,7 @@ class UI:
             <menuitem action="Slide timing"/>
             <menuitem action="Reverse timing"/>
           </menu>
+
           <menu action="Help">
             <menuitem action="About"/>
           </menu>
@@ -224,6 +230,7 @@ class UI:
             ("Fullscreen",   None,           "_Fullscreen",  "f",  None, self.switch_fullscreen, False),
             ("Notes mode",   None,           "_Note mode",   "n",  None, self.switch_mode,       self.notes_mode),
             ("Reverse timing",   None,           "Rever_se timing",   "s",  None, self.switch_countdown,       self.time_reverse),
+
         ])
         action_group.add_action(gtk.Action("Timing reference", "_Timing mode",None, None))
         action_group.add_radio_actions([
@@ -232,6 +239,7 @@ class UI:
             ]
             ,1,self.on_timing_mode_changed)
             
+
         ui_manager.insert_action_group(action_group)
 
         # Add menu bar to the window
@@ -252,7 +260,8 @@ class UI:
         bigvbox.pack_end(align)
 
         # "Current slide" frame
-        frame = gtk.Frame("Current slide")
+        #frame = gtk.Frame("Current slide")
+        frame = gtk.Frame("Current notes")
         table.attach(frame, 0, 6, 0, 1)
         align = gtk.Alignment(0.5, 0.5, 1, 1)
         align.set_padding(0, 0, 12, 0)
@@ -281,7 +290,8 @@ class UI:
         self.entry_cur.modify_font(pango.FontDescription('36'))
 
         # "Next slide" frame
-        frame = gtk.Frame("Next slide")
+        #frame = gtk.Frame("Next slide")
+        frame = gtk.Frame("Current slide")
         table.attach(frame, 6, 10, 0, 1)
         align = gtk.Alignment(0.5, 0.5, 1, 1)
         align.set_padding(0, 0, 12, 0)
@@ -303,21 +313,21 @@ class UI:
         self.p_frame_next.add(self.p_da_next)
 
         # "Time elapsed" frame
-        frame = gtk.Frame("Time elapsed")
-        table.attach(frame, 0, 5, 1, 2, yoptions=gtk.FILL)
+        self.elapsed_frame = gtk.Frame("Time elapsed")
+        table.attach(self.elapsed_frame, 0, 5, 1, 2, yoptions=gtk.FILL)
         align = gtk.Alignment(0.5, 0.5, 1, 1)
         align.set_padding(10, 10, 12, 0)
-        frame.add(align)
+        self.elapsed_frame.add(align)
         self.label_time.set_justify(gtk.JUSTIFY_CENTER)
         self.label_time.set_use_markup(True)
         align.add(self.label_time)
 
         # "Clock" frame
-        frame = gtk.Frame("Clock")
-        table.attach(frame, 5, 10, 1, 2, yoptions=gtk.FILL)
+        self.clock_frame = gtk.Frame("Clock")
+        table.attach(self.clock_frame, 5, 10, 1, 2, yoptions=gtk.FILL)
         align = gtk.Alignment(0.5, 0.5, 1, 1)
         align.set_padding(10, 10, 12, 0)
-        frame.add(align)
+        self.clock_frame.add(align)
         self.label_clock.set_justify(gtk.JUSTIFY_CENTER)
         self.label_clock.set_use_markup(True)
         align.add(self.label_clock)
@@ -367,7 +377,7 @@ class UI:
         about = gtk.AboutDialog()
         about.set_program_name("pympress")
         about.set_version(pympress.__version__)
-        about.set_copyright("(c) 2009, 2010 Thomas Jost\n2013 Arsen Batagov")
+        about.set_copyright("(c) 2009, 2010 Thomas Jost")
         about.set_comments("pympress is a little PDF reader written in Python using Poppler for PDF rendering and GTK for the GUI.")
         about.set_website("http://www.pympress.org/")
         try:
@@ -392,7 +402,8 @@ class UI:
         :type  unpause: boolean
         """
         page_cur = self.doc.current_page()
-        page_next = self.doc.next_page()
+        #page_next = self.doc.next_page()
+        page_next = self.doc.current_page()
 
         # Aspect ratios
         pr = page_cur.get_aspect_ratio(self.notes_mode)
@@ -415,6 +426,8 @@ class UI:
             #self.delta=0
             self.delta_slide=0
 
+
+
         # Update display
         self.update_page_numbers()
 
@@ -429,8 +442,6 @@ class UI:
         page_min = max(0, cur - 2)
         for p in range(cur+1, page_max) + range(cur, page_min, -1):
             self.cache.prerender(p)
-        
-        
 
 
     def on_expose(self, widget, event=None):
@@ -453,7 +464,8 @@ class UI:
             page = self.doc.current_page()
         else:
             # Next page: it can be None
-            page = self.doc.next_page()
+            #page = self.doc.next_page()
+            page = self.doc.current_page()
             if page is None:
                 widget.hide_all()
                 widget.parent.set_shadow_type(gtk.SHADOW_NONE)
@@ -531,6 +543,12 @@ class UI:
                 self.switch_pause()
             elif name.upper() == "R":
                 self.reset_timer()
+            elif name.upper() == "N":
+                self.switch_mode()
+            elif name.upper() == "G":
+                self.select_page(widget, event, True)
+            elif event.string.isdigit():
+                self.select_page(widget, event)
 
             # Some key events are already handled by toggle actions in the
             # presenter window, so we must handle them in the content window
@@ -563,7 +581,8 @@ class UI:
 
         # Where did the event occur?
         if widget is self.p_da_next:
-            page = self.doc.next_page()
+            #page = self.doc.next_page()
+            page = self.doc.current_page()
             if page is None:
                 return
         else:
@@ -658,7 +677,6 @@ class UI:
         :param widget: the radio widget
         """
         self.time_reference=current.get_name()
-            
 
     def render_page(self, page, widget, wtype):
         """
@@ -714,7 +732,8 @@ class UI:
         cur = "%d/%d" % (cur_nb+1, self.doc.pages_number())
         next = "--"
         if cur_nb+2 <= self.doc.pages_number():
-            next = "%d/%d" % (cur_nb+2, self.doc.pages_number())
+            #next = "%d/%d" % (cur_nb+2, self.doc.pages_number())
+            next = "%d/%d" % (cur_nb+1, self.doc.pages_number())
 
         self.label_cur.set_markup(text % cur)
         self.label_next.set_markup(text % next)
@@ -732,6 +751,7 @@ class UI:
         text = "<span font='36'>%s</span>"
         red_text=  "<span foreground='red' font='36'>%s</span>"
 
+
         # Current time
         clock = time.strftime("%H:%M:%S")
 
@@ -741,6 +761,7 @@ class UI:
             self.delta = time.time() - self.start_time
             # Time elapsed since the last slide navigation event
             self.delta_slide=time.time() - self.start_time_slide
+
         
         if self.time_reverse:
             if self.delta<self.minutes_per_presentation*60:
@@ -774,7 +795,6 @@ class UI:
             else:
                 self.label_time.set_markup(text % elapsed)
             self.label_clock.set_markup(text % clock)
-        
 
         return True
 
@@ -784,6 +804,7 @@ class UI:
         if self.paused:
             self.start_time = time.time() - self.delta
             self.start_time_slide=time.time()-self.delta_slide
+
             self.paused = False
         else:
             self.paused = True
@@ -880,6 +901,7 @@ class UI:
             self.cache.set_widget_type("p_da_next", PDF_CONTENT_PAGE)
 
         self.on_page_change(False)
+
     def  switch_countdown(self,widget=None,event=None):
         """
         Switch the timing to countdown mode
@@ -889,9 +911,38 @@ class UI:
         #else:
             #self.start_time=self.seconds_per_slide
         self.time_reverse=not self.time_reverse
+        if self.time_reverse:
+            if self.time_reference=='Slide timing':
+                self.clock_frame.set_label('Remaining presentation time')
+                self.elapsed_frame.set_label('Remainig slide time')
+            elif self.time_reference=='Presentation timing':
+                self.clock_frame.set_label('Clock')
+                self.elapsed_frame.set_label('Remaining')                
+        else:
+            self.clock_frame.set_label('Clock')
+            self.elapsed_frame.set_label('Elapsed')
+            
             
         self.update_time()
 
+
+    def select_page(self, widget=None, event=None, go=False):
+        """
+        Capture continuous digital keys that are pressed within 1000
+        milliseconds, and convert the sequence to an integer. Then go to display
+        the corresponding slide page.
+        """
+        if go :
+            if self.s_go_page_num.isdigit() :
+                self.doc.goto(int(self.s_go_page_num)-1)
+            self.s_go_page_num = ""
+        else :
+            diff = event.time - self.old_event_time
+            if diff >= 0 and diff < 1000 :
+                self.s_go_page_num += event.string
+            else :
+                self.s_go_page_num = event.string
+        self.old_event_time = event.time
 
 ##
 # Local Variables:
