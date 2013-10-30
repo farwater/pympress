@@ -24,6 +24,8 @@ import glob
 
 version="0.3"
 
+
+
 setup(name="pympress",
       version=version,
       description="A simple dual-screen PDF reader designed for presentations",
@@ -48,7 +50,7 @@ setup(name="pympress",
       scripts=["bin/pympress"],
       data_files=[
           ("share/pixmaps", glob.glob("share/pixmaps/pympress*")),
-      ],
+      ]
 )
 
 ##

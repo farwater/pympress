@@ -201,6 +201,7 @@ class UI:
             <menuitem action="Presentation timing"/>
             <menuitem action="Slide timing"/>
             <menuitem action="Reverse timing"/>
+        <menuitem action="Timing settings"/>
           </menu>
 
           <menu action="Help">
@@ -230,6 +231,7 @@ class UI:
             ("Fullscreen",   None,           "_Fullscreen",  "f",  None, self.switch_fullscreen, False),
             ("Notes mode",   None,           "_Note mode",   "n",  None, self.switch_mode,       self.notes_mode),
             ("Reverse timing",   None,           "Rever_se timing",   "s",  None, self.switch_countdown,       self.time_reverse),
+        ("Timing settings",None,    "Timing settings", None,None, self.menu_timing_settings,False),
 
         ])
         action_group.add_action(gtk.Action("Timing reference", "_Timing mode",None, None))
@@ -238,7 +240,6 @@ class UI:
             ("Slide timing",None, "Slide-wise timing mode", None, None,2)
             ]
             ,1,self.on_timing_mode_changed)
-            
 
         ui_manager.insert_action_group(action_group)
 
@@ -388,6 +389,83 @@ class UI:
             print e
         about.run()
         about.destroy()
+    
+    def menu_timing_settings(self,widget=None,event=None):
+        dlg=gtk.Dialog("Timing settings")
+        dlg.set_default_size(50,100)
+        label=gtk.Label("Setup the settings of the timers \ncounting the slide and presentation durations")
+        box=dlg.get_content_area()
+        box.add(label)
+        button_apply=gtk.Button("Apply")
+        button_apply.connect("clicked",self.on_timing_settings_apply)
+        
+        radio_timing_hbox=gtk.HButtonBox()
+        radio_timing_label=gtk.Label("Timing reference")
+        self.radio_timing_presentation=gtk.RadioButton(None, "Presentation")
+        self.radio_timing_slide=gtk.RadioButton(self.radio_timing_presentation,"Slide")
+        if self.time_reference=='Presentation timing':
+           self. radio_timing_presentation.set_active(True)
+        else:
+            self.radio_timing_slide.set_active(True)
+        for x in [self.radio_timing_presentation,self.radio_timing_slide]:
+            radio_timing_hbox.pack_start(x,False,False,0)
+    
+        
+        radio_tdirection_hbox=gtk.HButtonBox()
+        radio_tdirection_label=gtk.Label("Timing mode")
+        self.radio_tdirection_forward=gtk.RadioButton(None,"Forward")
+        self.radio_tdirection_reverse=gtk.RadioButton(self.radio_tdirection_forward,"Reverse")
+        if self.time_reverse:
+            self.radio_tdirection_reverse.set_active(True)
+        else:
+            self.radio_tdirection_forward.set_active(True)
+        
+        for x in [self.radio_tdirection_forward,self.radio_tdirection_reverse]:
+            radio_tdirection_hbox.pack_start(x,False,False,0)
+        
+        spin_duration_label=gtk.Label("Time limits")
+    
+        spin_duration_presentation_hbox=gtk.HButtonBox()
+        spin_duration_presentation_label=gtk.Label("minutes per presentation")
+        self.presentation_spin=gtk.SpinButton(gtk.Adjustment(self.minutes_per_presentation, 1,999,1,1,0),0,0)
+        #self.presentation_spin.set_value(self.minutes_per_presentation)
+        #print self.presentation_spin.get_value(),'pres spin',self.minutes_per_presentation
+        #self.presentation_spin.connect('changed',self.get_spin_value,self.minutes_per_presentation)
+        for x in [spin_duration_presentation_label,self.presentation_spin]:
+            spin_duration_presentation_hbox.pack_start(x,False,False,0)
+    
+        spin_duration_slide_hbox=gtk.HButtonBox()
+        spin_duration_slide_label=gtk.Label("seconds per slide")
+        self.slide_spin=gtk.SpinButton(gtk.Adjustment(self.seconds_per_slide, 1,999,1,1,0),0,0)
+        #self.slide_spin.set_value(self.seconds_per_slide)
+        self.slide_spin.connect('changed',self.get_spin_value,self.seconds_per_slide)
+        for x in [spin_duration_slide_label,self.slide_spin]:
+            spin_duration_slide_hbox.pack_start(x,False,False,0)
+    
+        
+        box.add(radio_timing_label)
+        box.add(radio_timing_hbox)
+        box.add(radio_tdirection_label)
+        box.add(radio_tdirection_hbox)
+        box.add(spin_duration_label)
+        box.add(spin_duration_presentation_hbox)
+        box.add(spin_duration_slide_hbox)
+        
+        box.add(button_apply)
+    
+        dlg.show_all()
+    
+    def get_spin_value(widget,spin,value):
+        value=spin.get_value_as_int()
+    def on_timing_settings_apply(self,widget):
+        if self.radio_timing_presentation.get_active():
+            self.time_reference='Presentation timing'
+        else:
+            self.time_reference='Slide timing'
+        self.time_reverse=self.radio_tdirection_reverse.get_active()
+        self.minutes_per_presentation=self.presentation_spin.get_value_as_int()
+        self.seconds_per_slide=self.slide_spin.get_value_as_int()
+        print "Timing settings applied"
 
 
     def on_page_change(self, unpause=True):
