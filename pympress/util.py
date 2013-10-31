@@ -21,13 +21,22 @@
 :mod:`pympress.util` -- various utility functions
 -------------------------------------------------
 """
-
-import pygtk
-pygtk.require('2.0')
-import gtk
+print "in util"
+import gi
+gi.require_version('Gtk', '3.0')
+print "import gi done"
+from gi.repository import Gtk, GdkPixbuf
+print "import gtk, gdkpixbuf done"
 import pkg_resources
+print "import pkg_resources done"
 import os, os.path, sys
-import poppler
+print "import os, sys done"
+try:
+	from gi.repository import Poppler as poppler
+except:
+	print "Poppler not found in gi.repository. Please check that you have its typelib (Poppler-X.XX.typelib file) properly installed ."
+	exit
+print "import poppler done"
 
 def load_icons():
     """
@@ -35,7 +44,7 @@ def load_icons():
     :file:`/usr/share/pixmaps` or something similar).
 
     :return: loaded icons
-    :rtype: list of :class:`gtk.gdk.Pixbuf`
+    :rtype: list of :class:`GdkPixbuf.Pixbuf`
     """
     
     req = pkg_resources.Requirement.parse("pympress")
@@ -45,7 +54,7 @@ def load_icons():
         if os.path.splitext(icon_name)[1].lower() != ".png": continue
         icon_fn = pkg_resources.resource_filename(req, "share/pixmaps/%s" % icon_name)
         try:
-            icon_pixbuf = gtk.gdk.pixbuf_new_from_file(icon_fn)
+            icon_pixbuf = GdkPixbuf.Pixbuf.new_from_file(icon_fn)
             icons.append(icon_pixbuf)
         except Exception, e:
             print e

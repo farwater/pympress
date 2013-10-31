@@ -31,15 +31,21 @@ only rendering itself: the preparation of the target surface must be done
 elsewhere).
 """
 
-
+print "in document.py"
 import sys
-
-import poppler
-
+print "import sys done"
+try:
+	from gi.repository import Poppler as poppler
+except:
+	print "Poppler not found in gi.repository. Please check that you have its typelib (Poppler-X.XX.typelib file) properly installed ."
+	exit
+print "import poppler done"
 import pympress.ui
+print "import pympress.ui done"
 import pympress.util
 
 from pympress.ui import PDF_REGULAR, PDF_CONTENT_PAGE, PDF_NOTES_PAGE
+
 
 class Link:
     """This class encapsulates one hyperlink of the document."""
@@ -204,7 +210,7 @@ class Page:
         """Render the page on a Cairo surface.
 
         :param cr: target surface
-        :type  cr: :class:`gtk.gdk.CairoContext`
+        :type  cr: :class:`Gdk.CairoContext`
         :param ww: target width in pixels
         :type  ww: integer
         :param wh: target height in pixels
@@ -271,7 +277,7 @@ class Document:
             print >>sys.stderr, "Hyperlink support not found in poppler-python -- be sure to use at least bazaar rev. 62 to have them working"
 
         # Open PDF file
-        self.doc = poppler.document_new_from_file(uri, None)
+        self.doc=poppler.Document().new_from_file(uri, None)
 
         # Pages number
         self.nb_pages = self.doc.get_n_pages()

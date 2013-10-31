@@ -23,7 +23,7 @@
 
 This modules contains stuff needed for caching pages and prerendering them. This
 is done by the :class:`~pympress.pixbufcache.PixbufCache` class, using several
-dictionaries of :class:`gtk.gdk.Pixbuf` for storing rendered pages.
+dictionaries of :class:`GdkPixbuf.Pixbuf` for storing rendered pages.
 
 When used, the prerendering is done asynchronously in another thread.
 
@@ -39,16 +39,16 @@ import Queue
 import threading
 import time
 
-import pygtk
-pygtk.require('2.0')
-import gtk
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, Gdk
 
 class PixbufCache:
     """Pages caching and prerendering made (almost) easy."""
 
     #: The actual cache. It is a dictionary of dictionaries: its keys are widget
     #: names and its values are dictionaries whose keys are page numbers and
-    #: values are instances of :class:`gtk.gdk.Pixbuf`.
+    #: values are instances of :class:`GdkPixbuf.Pixbuf`.
     pixbuf_cache = {}
 
     #: Size of the different managed widgets, as a dictionary of tuples
@@ -159,7 +159,7 @@ class PixbufCache:
         :param page_nb: number of the page to fetch in the cache
         :type  page_nb: integer
         :return: the cached page if available, or ``None`` otherwise
-        :rtype: :class:`gtk.gdk.Pixbuf`
+        :rtype: :class:`GdkPixbuf.Pixbuf`
         """
         with self.locks[widget_name]:
             pc = self.pixbuf_cache[widget_name]
@@ -177,7 +177,7 @@ class PixbufCache:
         :param page_nb: number of the page to store in the cache
         :type  page_nb: integer
         :param val: content to store in the cache
-        :type  val: :class:`gtk.gdk.Pixbuf`
+        :type  val: :class:`GdkPixbuf.Pixbuf`
         """
         with self.locks[widget_name]:
             pc = self.pixbuf_cache[widget_name]
@@ -208,7 +208,7 @@ class PixbufCache:
         - fetch the number of a page to render from the jobs
           :class:`~Queue.Queue`
         - check if it is not already available in the cache
-        - render it in a new :class:`~gtk.gdk.Pixbuf` if necessary
+        - render it in a new :class:`~GdkPixbuf.Pixbuf` if necessary
         - store it in the cache if it was not added there since the beginning of
           the process
 
@@ -241,15 +241,15 @@ class PixbufCache:
 
             print "Prerendering page %d for widget %s type %d" % (page_nb+1, widget_name, type)
 
-            with gtk.gdk.lock:
+            with Gdk.lock:
                 # Render to a pixmap
-                pixmap = gtk.gdk.Pixmap(None, ww, wh, 24) # FIXME: 24 or 32?
+                pixmap = Gdk.Pixmap(None, ww, wh, 24) # FIXME: 24 or 32?
                 cr = pixmap.cairo_create()
                 page.render_cairo(cr, ww, wh, type)
 
                 # Convert pixmap to pixbuf
-                pixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, ww, wh)
-                pixbuf.get_from_drawable(pixmap, gtk.gdk.colormap_get_system(),
+                pixbuf = GdkPixbuf.Pixbuf(GdkPixbuf.Colorspace.RGB, False, 8, ww, wh)
+                pixbuf.get_from_drawable(pixmap, Gdk.colormap_get_system(),
                                          0, 0, 0, 0, ww, wh)
 
             # Save if possible and necessary
