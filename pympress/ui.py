@@ -48,6 +48,29 @@ print "import pixbufcache done"
 import pympress.util
 print "import util done"
 
+
+import wave
+
+try:
+    import pyaudio
+    sound_supported=True
+except ImportError:
+    print 'No sound support. Please, install pyglet module to have one'
+    sound_supported=False
+PAudio=pyaudio.PyAudio()
+
+def pyaudio_play(snd,chunk=1024):
+    stream=PAudio.open(format=PAudio.get_format_from_width(snd.getsampwidth()),
+                  channels=snd.getnchannels(),
+                  rate=snd.getframerate(),
+                  output=True)
+    data=snd.readframes(chunk)
+    while data!='':
+        stream.write(data)
+        data=snd.readframes(chunk)
+
+
+
 #: "Regular" PDF file (without notes)
 PDF_REGULAR      = 0
 #: Content page (left side) of a PDF file with notes
@@ -365,6 +388,14 @@ class UI:
 
         # Document
         self.doc = doc
+        
+        #Setup sound
+        #if sound_supported:
+        snd_alarm_file=pkg_resources.resource_filename(pkg_resources.Requirement.parse("pympress"),'share/sounds/pympress_alarm.wav')
+            #self.snd_alarm=pyglet.media.load(snd_alarm_file,streaming=False)
+        self.snd_alarm=wave.open(snd_alarm_file)
+    
+        
 
         # Show all windows
         self.c_win.show_all()
@@ -512,6 +543,8 @@ class UI:
 
         # Update display
         self.update_page_numbers()
+        
+        
 
         # Don't queue draw event but draw directly (faster)
         self.on_expose(self.c_da)
@@ -878,6 +911,11 @@ class UI:
             else:
                 self.label_time.set_markup(text % elapsed)
             self.label_clock.set_markup(text % clock)
+            
+        #Play sound
+        if (not self.paused)&(int(self.delta_slide)==self.seconds_per_slide):
+            #self.snd_alarm.play()
+            pyaudio_play(self.snd_alarm)
 
         return True
 
@@ -1026,6 +1064,8 @@ class UI:
             else :
                 self.s_go_page_num = event.string
         self.old_event_time = event.time
+    
+    
 
 ##
 # Local Variables:
