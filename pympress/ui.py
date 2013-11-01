@@ -59,7 +59,8 @@ except ImportError:
     sound_supported=False
 PAudio=pyaudio.PyAudio()
 
-def pyaudio_play(snd,chunk=1024):
+def pyaudio_play(snd_file,chunk=1024):
+    snd=wave.open(snd_file)
     stream=PAudio.open(format=PAudio.get_format_from_width(snd.getsampwidth()),
                   channels=snd.getnchannels(),
                   rate=snd.getframerate(),
@@ -68,6 +69,7 @@ def pyaudio_play(snd,chunk=1024):
     while data!='':
         stream.write(data)
         data=snd.readframes(chunk)
+    snd.close()
 
 
 
@@ -155,6 +157,13 @@ class UI:
     
     #: Whether the time count is forward or reverse
     time_reverse=False
+    
+    #: Audio notifications
+    if sound_supported:
+        sound_on=False
+    else:
+        sound_off
+    slide_played=False
 
     def __init__(self, doc):
         """
@@ -391,9 +400,9 @@ class UI:
         
         #Setup sound
         #if sound_supported:
-        snd_alarm_file=pkg_resources.resource_filename(pkg_resources.Requirement.parse("pympress"),'share/sounds/pympress_alarm.wav')
-            #self.snd_alarm=pyglet.media.load(snd_alarm_file,streaming=False)
-        self.snd_alarm=wave.open(snd_alarm_file)
+        if sound_supported:
+            self.snd_alarm=pkg_resources.resource_filename(pkg_resources.Requirement.parse("pympress"),'share/sounds/pympress_alarm.wav')
+                #self.snd_alarm=pyglet.media.load(snd_alarm_file,streaming=False)
     
         
 
@@ -436,8 +445,8 @@ class UI:
         
         radio_timing_hbox=Gtk.HButtonBox()
         radio_timing_label=Gtk.Label(label="Timing reference")
-        self.radio_timing_presentation=Gtk.RadioButton(None, "Presentation")
-        self.radio_timing_slide=Gtk.RadioButton(self.radio_timing_presentation,"Slide")
+        self.radio_timing_presentation=Gtk.RadioButton.new_with_label_from_widget(None, "Presentation")
+        self.radio_timing_slide=Gtk.RadioButton.new_with_label_from_widget(self.radio_timing_presentation,"Slide")
         if self.time_reference=='Presentation timing':
            self. radio_timing_presentation.set_active(True)
         else:
@@ -448,8 +457,8 @@ class UI:
         
         radio_tdirection_hbox=Gtk.HButtonBox()
         radio_tdirection_label=Gtk.Label(label="Timing mode")
-        self.radio_tdirection_forward=Gtk.RadioButton(None,"Forward")
-        self.radio_tdirection_reverse=Gtk.RadioButton(self.radio_tdirection_forward,"Reverse")
+        self.radio_tdirection_forward=Gtk.RadioButton.new_with_label_from_widget(None,"Forward")
+        self.radio_tdirection_reverse=Gtk.RadioButton.new_with_label_from_widget(self.radio_tdirection_forward,"Reverse")
         if self.time_reverse:
             self.radio_tdirection_reverse.set_active(True)
         else:
@@ -462,7 +471,8 @@ class UI:
     
         spin_duration_presentation_hbox=Gtk.HButtonBox()
         spin_duration_presentation_label=Gtk.Label(label="minutes per presentation")
-        self.presentation_spin=Gtk.SpinButton(Gtk.Adjustment(self.minutes_per_presentation, 1,999,1,1,0),0,0)
+        self.presentation_spin=Gtk.SpinButton()
+        self.presentation_spin.set_adjustment(Gtk.Adjustment(self.minutes_per_presentation, 1,999,1,1,0))
         #self.presentation_spin.set_value(self.minutes_per_presentation)
         #print self.presentation_spin.get_value(),'pres spin',self.minutes_per_presentation
         #self.presentation_spin.connect('changed',self.get_spin_value,self.minutes_per_presentation)
@@ -471,11 +481,19 @@ class UI:
     
         spin_duration_slide_hbox=Gtk.HButtonBox()
         spin_duration_slide_label=Gtk.Label(label="seconds per slide")
-        self.slide_spin=Gtk.SpinButton(Gtk.Adjustment(self.seconds_per_slide, 1,999,1,1,0),0,0)
+        self.slide_spin=Gtk.SpinButton()
+        self.slide_spin.set_adjustment(Gtk.Adjustment(self.seconds_per_slide, 1,999,1,1,0))
         #self.slide_spin.set_value(self.seconds_per_slide)
         self.slide_spin.connect('changed',self.get_spin_value,self.seconds_per_slide)
         for x in [spin_duration_slide_label,self.slide_spin]:
             spin_duration_slide_hbox.pack_start(x,False,False,0)
+            
+        if sound_supported:
+            self.sound_check=Gtk.CheckButton('Audio notifications')
+            if self.sound_on:
+                self.sound_check.set_active(True)
+            else:
+                self.sound_check.set_active(False)
     
         
         box.add(radio_timing_label)
@@ -485,6 +503,7 @@ class UI:
         box.add(spin_duration_label)
         box.add(spin_duration_presentation_hbox)
         box.add(spin_duration_slide_hbox)
+        box.add(self.sound_check)
         
         box.add(button_apply)
     
@@ -500,6 +519,12 @@ class UI:
         self.time_reverse=self.radio_tdirection_reverse.get_active()
         self.minutes_per_presentation=self.presentation_spin.get_value_as_int()
         self.seconds_per_slide=self.slide_spin.get_value_as_int()
+        
+        if self.sound_check.get_active():
+            self.sound_on=True
+        else:
+            self.sound_on=False
+        print 'sound_on=',self.sound_on
         print "Timing settings applied"
 
 
@@ -557,6 +582,9 @@ class UI:
         page_min = max(0, cur - 2)
         for p in range(cur+1, page_max) + range(cur, page_min, -1):
             self.cache.prerender(p)
+        
+        #Reset the alarm setting for the slide
+        self.slide_played=False
 
 
     def on_expose(self, widget, event=None):
@@ -913,9 +941,12 @@ class UI:
             self.label_clock.set_markup(text % clock)
             
         #Play sound
-        if (not self.paused)&(int(self.delta_slide)==self.seconds_per_slide):
-            #self.snd_alarm.play()
-            pyaudio_play(self.snd_alarm)
+        #print "sound_on=",self.sound_on,'delta=',int(self.delta_slide)
+        if (not self.slide_played)&(not self.paused)&(int(self.delta_slide)==self.seconds_per_slide):
+            if self.sound_on:
+                #self.snd_alarm.play()
+                pyaudio_play(self.snd_alarm)
+            self.slide_played=True
 
         return True
 

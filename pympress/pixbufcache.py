@@ -241,16 +241,16 @@ class PixbufCache:
 
             print "Prerendering page %d for widget %s type %d" % (page_nb+1, widget_name, type)
 
-            with Gdk.lock:
-                # Render to a pixmap
-                pixmap = Gdk.Pixmap(None, ww, wh, 24) # FIXME: 24 or 32?
-                cr = pixmap.cairo_create()
-                page.render_cairo(cr, ww, wh, type)
+            #with Gdk.lock:
+            # Render to a pixmap
+            pixmap = Gdk.Pixmap(None, ww, wh, 24) # FIXME: 24 or 32?
+            cr = pixmap.cairo_create()
+            page.render_cairo(cr, ww, wh, type)
 
-                # Convert pixmap to pixbuf
-                pixbuf = GdkPixbuf.Pixbuf(GdkPixbuf.Colorspace.RGB, False, 8, ww, wh)
-                pixbuf.get_from_drawable(pixmap, Gdk.colormap_get_system(),
-                                         0, 0, 0, 0, ww, wh)
+            # Convert pixmap to pixbuf
+            pixbuf = GdkPixbuf.Pixbuf(GdkPixbuf.Colorspace.RGB, False, 8, ww, wh)
+            pixbuf.get_from_drawable(pixmap, Gdk.colormap_get_system(),
+                                     0, 0, 0, 0, ww, wh)
 
             # Save if possible and necessary
             with self.locks[widget_name]:
