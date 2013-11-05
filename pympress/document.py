@@ -1,6 +1,7 @@
 #       document.py
 #
 #       Copyright 2009, 2010 Thomas Jost <thomas.jost@gmail.com>
+#       Copyright 2013 Arsen Batagov <alan.bat@gmail.com>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
