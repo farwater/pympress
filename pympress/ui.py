@@ -58,7 +58,12 @@ try:
 except ImportError:
     print 'No sound support. Please, install pyglet module to have one'
     sound_supported=False
-PAudio=pyaudio.PyAudio()
+
+try:
+    PAudio=pyaudio.PyAudio()
+except:
+    print "No PyAudio module found. Starting without sound support"
+    sound_supported=False
 
 def pyaudio_play(snd_file,chunk=1024):
     snd=wave.open(snd_file)
